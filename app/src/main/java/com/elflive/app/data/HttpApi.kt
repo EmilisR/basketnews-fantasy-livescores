@@ -2,7 +2,6 @@ package com.elflive.app.data
 
 import android.content.Context
 import android.webkit.CookieManager
-import android.webkit.WebSettings
 import com.elflive.app.core.LineupQuery
 import com.elflive.app.core.LiveApi
 import com.elflive.app.core.StoredTeam
@@ -44,7 +43,7 @@ class HttpApi(private val context: Context) : LiveApi {
     private val json = Json { ignoreUnknownKeys = true }
 
     private val userAgent: String by lazy {
-        runCatching { WebSettings.getDefaultUserAgent(context) }.getOrDefault("Mozilla/5.0 (Linux; Android)")
+        UserAgent.get(context)
     }
 
     override suspend fun schedule(season: String): JsonElement {

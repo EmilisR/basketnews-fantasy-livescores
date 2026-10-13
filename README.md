@@ -107,13 +107,14 @@ only run for `v*` tags, and an unsigned release build also configures fine local
 3. Tap **Install**. If Play Protect warns about an unknown developer, choose
    **More details → Install anyway**.
 4. Open **EuroLeague Fantasy Live**, allow notifications (Android 13+), log in to
-   BasketNews **with email and password** and open your team(s).
+   BasketNews with Google and open your team(s).
 
-**"Sign in with Google" (or Facebook/Apple) does not work inside the app.** Google blocks
-its login in embedded WebViews, and a login finished in Chrome isn't shared with the app
-(separate cookies). The app shows a hint instead of opening Chrome. If your BasketNews
-account was created with Google, use "Forgot password" on the BasketNews login page to set
-a password for the same email, then log in with that.
+**Google sign-in:** BasketNews only offers "Sign in with Google", and Google blocks its
+login inside embedded WebViews. To make it work, the app presents its WebView as mobile
+Chrome (it removes the WebView markers from the user agent and the `X-Requested-With`
+header) and keeps the Google login pages inside the app so the session ends up there.
+This goes against Google's policy for embedded browsers: Google can detect and block it at
+any time, and it would likely be rejected on Google Play.
 
 Debug and release builds are signed with different keys, so to switch between them you
 have to uninstall first.

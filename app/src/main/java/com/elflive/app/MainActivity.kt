@@ -1,7 +1,6 @@
 package com.elflive.app
 
 import android.Manifest
-import android.app.AlertDialog
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -30,10 +29,12 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.elflive.app.core.LiveState
 import com.elflive.app.data.SITE_ORIGIN
+import com.elflive.app.data.UserAgent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -64,9 +65,17 @@ class MainActivity : ComponentActivity() {
             setGeolocationEnabled(false)
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             setSupportMultipleWindows(false)
+            // BasketNews only has "Sign in with Google", which Google blocks in WebViews.
+            // Present the WebView as mobile Chrome so that login works (see UserAgent).
+            userAgentString = UserAgent.chromeLike(userAgentString)
             javaScriptCanOpenWindowsAutomatically = false
         }
         CookieManager.getInstance().setAcceptCookie(true)
+        CookieManager.getInstance().setAcceptThirdPartyCookies(web, true) // Google sign-in
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+            // Don't send "X-Requested-With: <app id>", which also marks requests as coming from an app.
+            WebSettingsCompat.setRequestedWithHeaderOriginAllowList(web.settings, emptySet())
+        }
 
         val supported = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT) &&
             WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)
@@ -83,12 +92,6 @@ class MainActivity : ComponentActivity() {
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (isAllowed(request.url)) return false
-                if (isSocialLogin(request.url)) {
-                    // Google/Facebook/Apple refuse to sign in inside an app's WebView, and a login done
-                    // in Chrome stays in Chrome (separate cookies), so explain instead of leaving the app.
-                    showSocialLoginHelp()
-                    return true
-                }
                 openExternally(request.url)
                 return true
             }
@@ -182,23 +185,11 @@ class MainActivity : ComponentActivity() {
 
     private fun isAllowed(uri: Uri): Boolean {
         val host = uri.host?.lowercase() ?: return false
-        return uri.scheme == "https" && (host == "basketnews.com" || host.endsWith(".basketnews.com"))
-    }
-
-    private fun isSocialLogin(uri: Uri): Boolean {
-        val host = uri.host?.lowercase() ?: return false
-        return host == "accounts.google.com" || host.endsWith(".accounts.google.com") ||
-            host == "facebook.com" || host.endsWith(".facebook.com") ||
-            host == "appleid.apple.com"
-    }
-
-    private fun showSocialLoginHelp() {
-        if (isFinishing) return
-        AlertDialog.Builder(this)
-            .setTitle(R.string.social_login_title)
-            .setMessage(R.string.social_login_message)
-            .setPositiveButton(android.R.string.ok, null)
-            .show()
+        if (uri.scheme != "https") return false
+        return host == "basketnews.com" || host.endsWith(".basketnews.com") ||
+            // Google sign-in (the only login BasketNews offers) has to happen in this WebView
+            // so that the session cookie ends up here, not in Chrome.
+            GOOGLE.matches(host) || host == "accounts.youtube.com"
     }
 
     private fun openExternally(uri: Uri) {
@@ -238,5 +229,10 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         web.destroy()
         super.onDestroy()
+    }
+
+    private companion object {
+        /** google.com, accounts.google.com, google.lt, ... */
+        val GOOGLE = Regex("^([a-z0-9-]+\\.)*google\\.[a-z]{2,3}(\\.[a-z]{2})?$")
     }
 }
