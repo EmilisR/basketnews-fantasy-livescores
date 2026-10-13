@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- ball -->
+    <path
+        android:fillColor="#F97316"
+        android:pathData="M54,24a30,30 0,1 1,0 60a30,30 0,1 1,0 -60z" />
+    <!-- seams -->
+    <path
+        android:strokeColor="#1F2937"
+        android:strokeWidth="2.5"
+        android:fillColor="#00000000"
+        android:pathData="M54,24L54,84M24,54L84,54M33,33C42,42 42,66 33,75M75,33C66,42 66,66 75,75" />
+</vector>

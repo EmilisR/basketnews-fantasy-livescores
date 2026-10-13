@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Keep the classic (non edge-to-edge) layout on Android 15+ so the WebView is not drawn under the system bars. -->
+    <style name="Theme.ElfLive" parent="android:Theme.Material.Light.DarkActionBar">
+        <item name="android:colorPrimary">#E8590C</item>
+        <item name="android:colorPrimaryDark">#B8440A</item>
+        <item name="android:colorAccent">#E8590C</item>
+        <item name="android:windowBackground">@android:color/white</item>
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+    </style>
+</resources>

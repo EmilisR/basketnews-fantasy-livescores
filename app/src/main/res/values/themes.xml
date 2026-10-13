@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ElfLive" parent="android:Theme.Material.Light.DarkActionBar">
+        <item name="android:colorPrimary">#E8590C</item>
+        <item name="android:colorPrimaryDark">#B8440A</item>
+        <item name="android:colorAccent">#E8590C</item>
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+
+    <style name="Theme.ElfLive.Web" parent="Theme.ElfLive">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>
