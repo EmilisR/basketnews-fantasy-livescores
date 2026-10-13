@@ -27,4 +27,6 @@
     <string name="about_rules">Live points = EFF from the live EuroLeague box score, +10% if the player\'s team is winning, −10% if losing (while a game is live: whoever leads right now). Captain x2 (x3 with Triple Captain), starters and sixth player x1, bench x0.5 (x1 with Bench Boost). BasketNews publishes its own official numbers after the games.</string>
     <string name="about_version">Version %1$s</string>
     <string name="webview_too_old">Your Android System WebView is too old. Update it from the Play Store to see live points.</string>
+    <string name="social_login_title">Use email login</string>
+    <string name="social_login_message">Google, Facebook and Apple don\'t allow signing in inside other apps, and a login done in Chrome isn\'t shared with this app.\n\nPlease log in to BasketNews with your email and password here instead. If you created your account with Google, use \"Forgot password\" on the BasketNews login page to set a password for the same email first.</string>
 </resources>

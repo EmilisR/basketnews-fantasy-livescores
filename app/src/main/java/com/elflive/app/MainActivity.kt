@@ -1,6 +1,7 @@
 package com.elflive.app
 
 import android.Manifest
+import android.app.AlertDialog
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -82,6 +83,12 @@ class MainActivity : ComponentActivity() {
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 if (isAllowed(request.url)) return false
+                if (isSocialLogin(request.url)) {
+                    // Google/Facebook/Apple refuse to sign in inside an app's WebView, and a login done
+                    // in Chrome stays in Chrome (separate cookies), so explain instead of leaving the app.
+                    showSocialLoginHelp()
+                    return true
+                }
                 openExternally(request.url)
                 return true
             }
@@ -176,6 +183,22 @@ class MainActivity : ComponentActivity() {
     private fun isAllowed(uri: Uri): Boolean {
         val host = uri.host?.lowercase() ?: return false
         return uri.scheme == "https" && (host == "basketnews.com" || host.endsWith(".basketnews.com"))
+    }
+
+    private fun isSocialLogin(uri: Uri): Boolean {
+        val host = uri.host?.lowercase() ?: return false
+        return host == "accounts.google.com" || host.endsWith(".accounts.google.com") ||
+            host == "facebook.com" || host.endsWith(".facebook.com") ||
+            host == "appleid.apple.com"
+    }
+
+    private fun showSocialLoginHelp() {
+        if (isFinishing) return
+        AlertDialog.Builder(this)
+            .setTitle(R.string.social_login_title)
+            .setMessage(R.string.social_login_message)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
     }
 
     private fun openExternally(uri: Uri) {
