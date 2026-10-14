@@ -293,7 +293,12 @@ class Engine(
         }
         val roster = Scoring.lineupToRoster(lineup)
         val codes = games.filter { it.round == euroRound }.map { it.gameCode }.toSet()
-        val calc = Scoring.computeTeam(roster, gameData.filter { it.gameCode in codes }, roster.options)
+        val calc = Scoring.computeTeam(
+            roster,
+            gameData.filter { it.gameCode in codes },
+            roster.options,
+            games.associate { it.gameCode to it.utc },
+        )
         return TeamState(
             id = t.fantasyTeamId,
             name = name,

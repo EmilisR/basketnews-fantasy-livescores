@@ -125,17 +125,43 @@ object Scoring {
     // ---------- team totals ----------
 
     // Full name first; if that finds nothing, fall back to the surname alone
-    // (lower score), so odd first names / nicknames still match.
+    // (lower score), so odd first names / nicknames ("Kostis" vs "KOSTAS") still match.
+    // The fallback needs the same first initial, so "Wendell Moore" never takes
+    // "MOORE, OMARI"'s points.
     private fun entryScore(entry: RosterEntry, feedName: String): Double {
         val s = nameMatchScore(entry.name, feedName)
         if (s > 0) return s.toDouble()
-        if (!entry.fallback.isNullOrEmpty() && nameMatchScore(entry.fallback, feedName) > 0) return 0.5
+        if (!entry.fallback.isNullOrEmpty() && nameMatchScore(entry.fallback, feedName) > 0 &&
+            sameInitial(entry, feedName)
+        ) return 0.5
         return 0.0
+    }
+
+    // Feed names are "SURNAME, FIRST". Without a known first name on either side, allow it.
+    private fun sameInitial(entry: RosterEntry, feedName: String): Boolean {
+        val initial = norm(entry.first).firstOrNull() ?: return true
+        if (!feedName.contains(',')) return true
+        val feedFirst = norm(feedName.substringAfter(',')).firstOrNull() ?: return true
+        return initial == feedFirst
+    }
+
+    // A player can only score in his own team's game: when the lineup tells us when that
+    // game starts, ignore box scores of games starting at other times.
+    private fun playsIn(entry: RosterEntry, g: Game, gameUtc: Map<Int, Long>): Boolean {
+        if (entry.gameTimes.isEmpty()) return true
+        val utc = gameUtc[g.gameCode] ?: return true
+        return entry.gameTimes.any { abs(it - utc) <= 10 * MINUTE }
     }
 
     private class Match(val s: Double, val p: FeedPlayer, val t: FeedTeam, val ti: Int, val g: Game, var amb: Boolean = false)
 
-    fun computeTeam(roster: Roster, games: List<Game?>, opts: ScoringOptions = roster.options): TeamResult {
+    /** [gameUtc]: schedule start time per game code, used to keep each player to his own game. */
+    fun computeTeam(
+        roster: Roster,
+        games: List<Game?>,
+        opts: ScoringOptions = roster.options,
+        gameUtc: Map<Int, Long> = emptyMap(),
+    ): TeamResult {
         var total = 0.0
         var live = false
 
@@ -146,6 +172,7 @@ object Scoring {
             val perGame = mutableListOf<Match>()
             for (g in games) {
                 if (g == null || g.status == GameStatus.PENDING || g.teams.size != 2) continue
+                if (!playsIn(entry, g, gameUtc)) continue
                 var best: Match? = null
                 g.teams.forEachIndexed { ti, t ->
                     for (p in t.players) {
@@ -280,12 +307,20 @@ object Scoring {
                 fallback = last,
                 official = if (pts is JsonPrimitive && !pts.isString) pts.doubleOrNull else null,
                 health = p?.get("health").strOrNull,
+                first = first,
+                gameTimes = gamesOfPlayer(p),
             )
         }
         return Roster(players, options)
     }
 
     // ---------- mapping a BasketNews round to a EuroLeague round ----------
+
+    private fun gamesOfPlayer(p: JsonObject?): List<Long> =
+        (p?.get("team").obj?.get("team").obj?.get("games").arr ?: emptyList())
+            .mapNotNull { parseTime(it.obj?.get("originalGameAt").str) }
+            .distinct()
+            .sorted()
 
     // Start times (ms) of every game in the lineup's round, as BasketNews reports them.
     fun gameTimesOf(lineup: JsonObject?): List<Long> {

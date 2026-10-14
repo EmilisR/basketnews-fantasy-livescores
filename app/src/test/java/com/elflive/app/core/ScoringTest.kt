@@ -223,6 +223,45 @@ class ScoringTest {
     }
 
     @Test
+    fun computeTeam_surnameFallbackNeedsSameInitial() {
+        // Wendell's game hasn't started; Omari Moore is playing in another game.
+        val other = game(
+            4, GameStatus.LIVE, "PAR" to 50.0, "BAR" to 40.0,
+            listOf(player("OM", "MOORE, OMARI", 9.0)), emptyList(),
+        )
+        val wendell = RosterEntry(Role.STARTER, "Wendell Moore", "Moore", first = "Wendell")
+        val r = Scoring.computeTeam(Roster(listOf(wendell)), listOf(other))
+        assertEquals("waiting", r.players[0].state)
+        assertEquals(0.0, r.total, 0.0)
+
+        // ...and once his own game is on, he gets his own points (feed spells "MOORE JR., WENDELL").
+        val his = game(
+            5, GameStatus.LIVE, "MAD" to 60.0, "OLY" to 50.0,
+            listOf(player("WM", "MOORE JR., WENDELL", 7.0)), emptyList(),
+        )
+        val r2 = Scoring.computeTeam(Roster(listOf(wendell)), listOf(other, his))
+        assertEquals("MOORE JR., WENDELL", r2.players[0].matchedName)
+        assertEquals(7.7, r2.total, 1e-9)
+
+        // Nicknames with the same initial still fall back to the surname.
+        val g = game(6, GameStatus.LIVE, "PAN" to 80.0, "OLY" to 70.0, listOf(player("A", "SLOUKAS, KOSTAS", 10.0)), emptyList())
+        val kostis = RosterEntry(Role.STARTER, "Kostis Sloukas", "Sloukas", first = "Kostis")
+        assertEquals(11.0, Scoring.computeTeam(Roster(listOf(kostis)), listOf(g)).total, 1e-9)
+    }
+
+    @Test
+    fun computeTeam_onlyCountsThePlayersOwnGame() {
+        val t1 = ms("2026-10-14T16:00:00Z")
+        val t2 = ms("2026-10-14T18:30:00Z")
+        val early = game(7, GameStatus.LIVE, "ZAL" to 50.0, "MAD" to 40.0, listOf(player("X1", "SMITH, JOHN", 12.0)), emptyList())
+        val late = game(8, GameStatus.LIVE, "PAN" to 30.0, "OLY" to 40.0, listOf(player("X2", "SMITH, JOHN", 5.0)), emptyList())
+        val entry = RosterEntry(Role.STARTER, "John Smith", "Smith", first = "John", gameTimes = listOf(t2 + 3 * 60_000))
+        val r = Scoring.computeTeam(Roster(listOf(entry)), listOf(early, late), gameUtc = mapOf(7 to t1, 8 to t2))
+        assertEquals(4.5, r.total, 1e-9) // only the 18:30 game, which his team is losing
+        assertFalse(r.players[0].ambiguous)
+    }
+
+    @Test
     fun computeTeam_roundsTotalToTwoDecimals() {
         val g = game(3, GameStatus.LIVE, "A" to 10.0, "B" to 5.0, listOf(player("X", "DOE, JOHN", 7.0)), emptyList())
         val r = Scoring.computeTeam(Roster(listOf(RosterEntry(Role.BENCH, "John Doe"))), listOf(g))
@@ -270,6 +309,10 @@ class ScoringTest {
         assertEquals(12.5, roster.players[0].official!!, 0.0)
         assertNull(roster.players[2].official) // string, not a number
         assertEquals("injured", roster.players[3].health)
+        assertEquals("Azuolas", roster.players[0].first)
+        assertEquals(listOf(ms("2026-10-14T16:00:00Z")), roster.players[0].gameTimes)
+        assertEquals(listOf(ms("2026-10-14T16:00:00Z")), roster.players[4].gameTimes) // "bogus" time skipped
+        assertTrue(roster.players[2].gameTimes.isEmpty())
         assertFalse(roster.options.tripleCaptain)
         assertFalse(roster.options.benchBoost)
     }

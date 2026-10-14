@@ -58,6 +58,10 @@ data class RosterEntry(
     val fallback: String? = null,
     val official: Double? = null,
     val health: String? = null,
+    /** First name as BasketNews has it; the surname-only fallback must agree on its initial. */
+    val first: String = "",
+    /** Start times (ms) of this player's team's games, from the lineup. Empty = unknown. */
+    val gameTimes: List<Long> = emptyList(),
 )
 
 data class Roster(val players: List<RosterEntry>, val options: ScoringOptions = ScoringOptions())
