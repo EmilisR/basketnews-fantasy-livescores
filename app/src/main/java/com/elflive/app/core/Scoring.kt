@@ -125,16 +125,20 @@ object Scoring {
     // ---------- team totals ----------
 
     // Full name first; if that finds nothing, fall back to the surname alone
-    // (lower score), so odd first names / nicknames ("Kostis" vs "KOSTAS") still match.
-    // The fallback needs the same first initial, so "Wendell Moore" never takes
-    // "MOORE, OMARI"'s points.
-    private fun entryScore(entry: RosterEntry, feedName: String): Double {
+    // (lower score), so odd first names / nicknames still match.
+    // - same first initial ("Kostis" vs "KOSTAS"): accepted anywhere;
+    // - different initial ("Sasha" vs "VEZENKOV, ALEKSANDAR"): only accepted when we know
+    //   this box score is the player's own game, so "Wendell Moore" never takes
+    //   "MOORE, OMARI"'s points from another game.
+    private fun entryScore(entry: RosterEntry, feedName: String, ownGame: Boolean): Double {
         val s = nameMatchScore(entry.name, feedName)
         if (s > 0) return s.toDouble()
-        if (!entry.fallback.isNullOrEmpty() && nameMatchScore(entry.fallback, feedName) > 0 &&
-            sameInitial(entry, feedName)
-        ) return 0.5
-        return 0.0
+        if (entry.fallback.isNullOrEmpty() || nameMatchScore(entry.fallback, feedName) == 0) return 0.0
+        return when {
+            sameInitial(entry, feedName) -> 0.5
+            ownGame -> 0.25
+            else -> 0.0
+        }
     }
 
     // Feed names are "SURNAME, FIRST". Without a known first name on either side, allow it.
@@ -151,6 +155,26 @@ object Scoring {
         if (entry.gameTimes.isEmpty()) return true
         val utc = gameUtc[g.gameCode] ?: return true
         return entry.gameTimes.any { abs(it - utc) <= 10 * MINUTE }
+    }
+
+    // True when this box score is known to be the player's own game (start time matched).
+    private fun isOwnGame(entry: RosterEntry, g: Game, gameUtc: Map<Int, Long>): Boolean =
+        entry.gameTimes.isNotEmpty() && gameUtc[g.gameCode] != null && playsIn(entry, g, gameUtc)
+
+    private fun teamIndex(entry: RosterEntry, g: Game): Int {
+        val code = entry.teamCode?.trim()?.uppercase(Locale.ROOT)?.takeIf { it.isNotEmpty() } ?: return -1
+        return g.teams.indexOfFirst { it.code.uppercase(Locale.ROOT) == code }
+    }
+
+    // When BasketNews's team abbreviation equals a feed team code, only look at that team:
+    // other games at the same time, and the opponent, can't be him.
+    private fun teamsToSearch(entry: RosterEntry, g: Game, codeSeen: Boolean): List<Int> {
+        val idx = teamIndex(entry, g)
+        return when {
+            idx >= 0 -> listOf(idx)
+            codeSeen -> emptyList()
+            else -> g.teams.indices.toList()
+        }
     }
 
     private class Match(val s: Double, val p: FeedPlayer, val t: FeedTeam, val ti: Int, val g: Game, var amb: Boolean = false)
@@ -170,13 +194,17 @@ object Scoring {
 
             // best match per game, then pick the single best player id overall
             val perGame = mutableListOf<Match>()
+            // Is his team code one the feed uses? (BasketNews and EuroLeague codes may differ.)
+            val codeSeen = games.any { it != null && teamIndex(entry, it) >= 0 }
             for (g in games) {
                 if (g == null || g.status == GameStatus.PENDING || g.teams.size != 2) continue
                 if (!playsIn(entry, g, gameUtc)) continue
+                val ownGame = isOwnGame(entry, g, gameUtc)
                 var best: Match? = null
-                g.teams.forEachIndexed { ti, t ->
+                for (ti in teamsToSearch(entry, g, codeSeen)) {
+                    val t = g.teams[ti]
                     for (p in t.players) {
-                        val s = entryScore(entry, p.name)
+                        val s = entryScore(entry, p.name, ownGame)
                         val b = best
                         if (s > 0 && (b == null || s > b.s)) best = Match(s, p, t, ti, g)
                         else if (s > 0 && b != null && s == b.s && p.id != b.p.id) b.amb = true
@@ -309,6 +337,7 @@ object Scoring {
                 health = p?.get("health").strOrNull,
                 first = first,
                 gameTimes = gamesOfPlayer(p),
+                teamCode = p?.get("team").obj?.get("team").obj?.get("abbreviation").strOrNull,
             )
         }
         return Roster(players, options)

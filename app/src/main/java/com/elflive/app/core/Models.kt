@@ -62,6 +62,8 @@ data class RosterEntry(
     val first: String = "",
     /** Start times (ms) of this player's team's games, from the lineup. Empty = unknown. */
     val gameTimes: List<Long> = emptyList(),
+    /** BasketNews team abbreviation, e.g. "OLY"; used only when it equals a feed team code. */
+    val teamCode: String? = null,
 )
 
 data class Roster(val players: List<RosterEntry>, val options: ScoringOptions = ScoringOptions())

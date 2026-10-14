@@ -250,6 +250,34 @@ class ScoringTest {
     }
 
     @Test
+    fun computeTeam_nicknameWithDifferentInitialInOwnGame() {
+        val t = ms("2026-10-14T18:00:00Z")
+        val oly = game(
+            9, GameStatus.LIVE, "OLY" to 70.0, "PAN" to 60.0,
+            listOf(player("V", "VEZENKOV, ALEKSANDAR", 20.0)), listOf(player("P", "PAPANIKOLAOU, KOSTAS", 4.0)),
+        )
+        val sasha = RosterEntry(Role.CAPTAIN, "Sasha Vezenkov", "Vezenkov", first = "Sasha", gameTimes = listOf(t))
+        val r = Scoring.computeTeam(Roster(listOf(sasha)), listOf(oly), gameUtc = mapOf(9 to t))
+        assertEquals("VEZENKOV, ALEKSANDAR", r.players[0].matchedName)
+        assertEquals(44.0, r.total, 1e-9)
+
+        // Without knowing his game, a different initial is not enough.
+        val unknown = sasha.copy(gameTimes = emptyList())
+        assertEquals("waiting", Scoring.computeTeam(Roster(listOf(unknown)), listOf(oly)).players[0].state)
+    }
+
+    @Test
+    fun computeTeam_teamCodeKeepsToOwnTeam() {
+        val t = ms("2026-10-14T18:00:00Z")
+        // Omari plays in another game at the same time; Wendell's team (MAD) hasn't got him in the box score yet.
+        val g1 = game(10, GameStatus.LIVE, "PAR" to 50.0, "BAR" to 40.0, listOf(player("OM", "MOORE, OMARI", 9.0)), emptyList())
+        val g2 = game(11, GameStatus.LIVE, "MAD" to 50.0, "OLY" to 40.0, listOf(player("X", "TAVARES, WALTER", 9.0)), emptyList())
+        val wendell = RosterEntry(Role.STARTER, "Wendell Moore", "Moore", first = "Wendell", gameTimes = listOf(t), teamCode = "MAD")
+        val r = Scoring.computeTeam(Roster(listOf(wendell)), listOf(g1, g2), gameUtc = mapOf(10 to t, 11 to t))
+        assertEquals("waiting", r.players[0].state)
+    }
+
+    @Test
     fun computeTeam_onlyCountsThePlayersOwnGame() {
         val t1 = ms("2026-10-14T16:00:00Z")
         val t2 = ms("2026-10-14T18:30:00Z")
