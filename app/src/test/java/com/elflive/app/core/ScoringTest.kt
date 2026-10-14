@@ -277,6 +277,40 @@ class ScoringTest {
         assertEquals("waiting", r.players[0].state)
     }
 
+    // Real BasketNews data (player search, 13-14 Oct 2026): Valencia (VAL) - Olympiacos (OLY)
+    // at 19:00 UTC on the 13th, Virtus (VIRT) - Paris (PBB) at 18:45 on the 14th.
+    @Test
+    fun computeTeam_realRound_vezenkovAndTheMoores() {
+        val valOly = ms("2026-10-13T19:00:00Z")
+        val virPrs = ms("2026-10-14T18:45:00Z")
+        val g = game(
+            12, GameStatus.LIVE, "PAM" to 70.0, "OLY" to 75.0,
+            listOf(player("OM", "MOORE, OMARI", 9.0)),
+            listOf(player("SV", "VEZENKOV, SASHA", 18.0)),
+        )
+        val roster = Roster(
+            listOf(
+                RosterEntry(Role.CAPTAIN, "Aleksandr Vezenkov", "Vezenkov", first = "Aleksandr", gameTimes = listOf(valOly), teamCode = "OLY"),
+                RosterEntry(Role.STARTER, "Wendell Moore", "Moore", first = "Wendell", gameTimes = listOf(virPrs), teamCode = "VIRT"),
+            ),
+        )
+        val r = Scoring.computeTeam(roster, listOf(g), gameUtc = mapOf(12 to valOly, 13 to virPrs))
+        assertEquals("VEZENKOV, SASHA", r.players[0].matchedName)
+        assertEquals(18 * 1.1 * 2, r.players[0].points, 1e-9)
+        assertEquals("waiting", r.players[1].state) // his game is tomorrow; never Omari's points
+        assertEquals(39.6, r.total, 1e-9)
+    }
+
+    @Test
+    fun teamCodeIgnoresDiacritics() {
+        val t = ms("2026-10-13T17:45:00Z")
+        val g = game(14, GameStatus.LIVE, "ULK" to 50.0, "ZAL" to 60.0, listOf(player("A", "SMITH, JOHN", 5.0)), listOf(player("B", "SMITH, JAMES", 7.0)))
+        val e = RosterEntry(Role.STARTER, "Jim Smith", "Smith", first = "Jim", gameTimes = listOf(t), teamCode = "ŽAL")
+        val r = Scoring.computeTeam(Roster(listOf(e)), listOf(g), gameUtc = mapOf(14 to t))
+        assertEquals("SMITH, JAMES", r.players[0].matchedName)
+        assertFalse(r.players[0].ambiguous)
+    }
+
     @Test
     fun computeTeam_onlyCountsThePlayersOwnGame() {
         val t1 = ms("2026-10-14T16:00:00Z")

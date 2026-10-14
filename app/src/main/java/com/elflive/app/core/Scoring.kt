@@ -162,8 +162,9 @@ object Scoring {
         entry.gameTimes.isNotEmpty() && gameUtc[g.gameCode] != null && playsIn(entry, g, gameUtc)
 
     private fun teamIndex(entry: RosterEntry, g: Game): Int {
-        val code = entry.teamCode?.trim()?.uppercase(Locale.ROOT)?.takeIf { it.isNotEmpty() } ?: return -1
-        return g.teams.indexOfFirst { it.code.uppercase(Locale.ROOT) == code }
+        // norm(): BasketNews writes Zalgiris as "ŽAL", the feed as "ZAL".
+        val code = norm(entry.teamCode).takeIf { it.isNotEmpty() } ?: return -1
+        return g.teams.indexOfFirst { norm(it.code) == code }
     }
 
     // When BasketNews's team abbreviation equals a feed team code, only look at that team:
